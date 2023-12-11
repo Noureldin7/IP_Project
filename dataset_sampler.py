@@ -3,12 +3,14 @@ import os
 import shutil
 import random
 
+# set random seed
+random.seed(42)
 # Folder names of classes to be sampled
 folder_names = ['one', 'two_up', 'three', 'four', 'palm']
 # Directory path for the dataset
-dataset_dir = "./hagrid-classification-512p"
+dataset_dir = "./hagrid-classification-512p/128p"
 # Number of samples to extract
-number_of_samples = 10
+number_of_samples = 10000
 
 for folder in folder_names:
     file_names = os.listdir(f'{dataset_dir}/{folder}')
