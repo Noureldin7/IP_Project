@@ -3,6 +3,8 @@ import os
 import shutil
 import random
 
+# set random seed
+random.seed(42)
 # Folder names of classes to be sampled
 folder_names = ['one', 'two_up', 'three', 'four', 'palm']
 # Directory path for the dataset
