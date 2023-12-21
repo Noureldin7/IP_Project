@@ -1,5 +1,7 @@
+.idea
 hagrid-classification-*
 samples
 results
+.amlignore*
 dataset.pkl
 model.pkl
