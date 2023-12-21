@@ -1,3 +1,6 @@
+.idea
 hagrid-classification-*
 samples
 results
+dataset.pkl
+model.pkl
