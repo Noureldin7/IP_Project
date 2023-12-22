@@ -13,8 +13,9 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("App Launcher")
+        self.frame = None
 
-        self.random_number_thread = None
+        self.backend_thread = None
         self.random_number_interval = 10 
 
         self.app_data = []
@@ -35,33 +36,31 @@ class App:
         self.label.pack()
 
         self.cap = cv2.VideoCapture(0)
-        self.show_frame()
+        # self.show_frame()
 
-        self.toggle_button = tk.Button(self.home_tab, text="Stop", command=lambda: self.toggle_stream())
+        self.toggle_button = tk.Button(self.home_tab, text="Start", command=lambda: self.toggle_stream())
         self.toggle_button.pack()
 
     def show_frame(self):
-        _, frame = self.cap.read()
-        cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-        img = Image.fromarray(cv2image)
-        imgtk = ImageTk.PhotoImage(image=img)
-        self.label.imgtk = imgtk
-        self.label.configure(image=imgtk)
+        if self.cap.isOpened():
+            _, self.frame = self.cap.read()
+            cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
+            img = Image.fromarray(cv2image)
+            imgtk = ImageTk.PhotoImage(image=img)
+            self.label.imgtk = imgtk
+            self.label.configure(image=imgtk)
         self.label.after(10, self.show_frame)
-
-        return frame
 
     def toggle_stream(self):
         if self.toggle_button["text"] == "Stop":
             self.toggle_button["text"] = "Start"
             self.cap.release()
-            self.random_number_thread.close()
+            self.backend_thread.close()
         else:
             self.toggle_button["text"] = "Stop"
             self.cap = cv2.VideoCapture(0)
-            frame = self.show_frame()
-            cv2.imshow("frame", frame)
-            self.backend_thread = threading.Thread(target=self.get_label, args=(frame), daemon=True)
+            self.show_frame()
+            self.backend_thread = threading.Thread(target=self.get_label, daemon=True)
             self.backend_thread.start()
 
     # def generate_random_number(self):
@@ -70,9 +69,13 @@ class App:
     #     print(f"Received random number: {random_number}")
     #     self.open_app_based_on_number(random_number)
 
-    def get_label(self, frame):
+    def get_label(self):
         time.sleep(self.random_number_interval)
-        label = predict(frame)
+        label = predict(self.frame)
+        if label == -1:
+            self.toggle_button["text"] = "Start"
+            self.toggle_stream()
+            return
         print(f"Received Label: {label}")
         self.open_app_based_on_number(label)
 

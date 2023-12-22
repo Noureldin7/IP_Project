@@ -196,7 +196,7 @@ def predict(frame):
     prediction = confidence_threshold(confidence, 0.6)
     return prediction
 
-# Call Rock Dislike Fist Palm
+#! Call Rock Dislike Fist Palm
 if __name__ == "__main__":
     # Open the camera (default camera index is usually 0)
     cap = cv2.VideoCapture(0)
