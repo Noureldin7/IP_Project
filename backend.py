@@ -1,19 +1,10 @@
 import numpy as np
 import time
-import os
 import cv2
 import pickle
 from glob import glob
 from sklearnex import patch_sklearn
 patch_sklearn()
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
-import pandas as pd
-from IPython.display import display_html
-from itertools import chain,cycle
-from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
-from sklearn.decomposition import PCA
 from skimage.feature import local_binary_pattern, hog
 import concurrent.futures # for multithreading
 def do_parallel_work(function : callable, *function_arguments : list[any]) -> list[any]:
@@ -126,6 +117,34 @@ def process_MeanShift(img, sp, sr):
     rgb_img = np.array(img)
     return cv2.pyrMeanShiftFiltering(rgb_img, sp, sr)
 
+def resize_and_pad(img, target_width = 128, target_height = 128):
+    # Get the original image dimensions
+    height, width, *_ = img.shape
+
+    # Calculate the aspect ratio
+    aspect_ratio = width / height
+
+    # Determine the new dimensions to fit into a 128x128 frame
+    if aspect_ratio > target_width/target_height:  # Landscape orientation
+        new_width = target_width
+        new_height = int(target_height / aspect_ratio)
+    else:  # Portrait or square orientation
+        new_width = int(target_width * aspect_ratio)
+        new_height = target_height
+
+    # Resize the image while maintaining the original aspect ratio
+    resized_image = cv2.resize(img, (new_width, new_height))
+
+    # Calculate the amount of padding needed
+    x_padding = (target_width - new_width) // 2
+    y_padding = (target_height - new_height) // 2
+
+    # Add zero-padding to the resized image
+    padded_image = cv2.copyMakeBorder(resized_image, y_padding, y_padding, x_padding, x_padding, cv2.BORDER_CONSTANT, value=0)
+    if padded_image.shape != (target_height, target_width):
+        padded_image = cv2.resize(padded_image, (target_width, target_height))
+    return padded_image
+
 # Build Preprocessing Pipeline Here
 def preprocess(img):
     img = cv2.resize(img, (128, 128))
@@ -144,17 +163,19 @@ def preprocess(img):
         [0, 1, 1, 1, 0],
         [0, 0, 1, 0, 0]
     ], dtype=np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, SE, iterations=9)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, SE, iterations=15)
     ctrs, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     # print(ctrs[0][0])
+    modified = np.array(img)
     if len(ctrs) != 0:
         x, y, w, h = cv2.boundingRect(max(ctrs, key=cv2.contourArea))
-        # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.rectangle(modified, (x, y), (x + w, y + h), (0, 255, 0), 2)
         img = img[y:y+h, x:x+w]
         img = cv2.resize(img, (original_img_shape[:2]))
+        # img = resize_and_pad(img)
     # img[mask == 0] = 0
     h = process_HOG(img).reshape(-1)
-    return h
+    return h, modified
 def confidence_threshold(row, threshold):
 	max_confidence = np.max(row)
 	if max_confidence < threshold:
@@ -162,12 +183,13 @@ def confidence_threshold(row, threshold):
 	else:
 		return np.argmax(row)
 
-
+# Call Rock Dislike Fist Palm
 if __name__ == "__main__":
     # Open the camera (default camera index is usually 0)
     cap = cv2.VideoCapture(0)
     # load model from pickle file
     model = pickle.load(open("./model.pkl", "rb"))
+    PCA_model = pickle.load(open("./pca.pkl", "rb"))
     # model.probability = True
     # Check if the camera is opened successfully
     if not cap.isOpened():
@@ -185,16 +207,16 @@ if __name__ == "__main__":
                 break
 
             # Display the frame (you can remove this line if you don't want to display the frames)
-            cv2.imshow('Frame', frame)
-            features = preprocess(frame)
-            PCA_model = pickle.load(open("./PCA.pkl", "rb"))
+            features, modified = preprocess(frame)
+            # print(modified.shape)
+            cv2.imshow('Frame', modified)
             features = PCA_model.transform([features])
-            prediction = model.predict(features)
-            # confidence = model.predict_proba(features)
-            # prediction = confidence_threshold(confidence, 0.45)
+            confidence = model.predict_proba(features)
+            # prediction = model.predict(features)
+            prediction = confidence_threshold(confidence, 0.6)
             print(prediction)
             # Wait for 1 second (1000 milliseconds)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Break the loop if the user presses the 'q' key
             if cv2.waitKey(1) & 0xFF == ord('q'):
