@@ -30,20 +30,37 @@ class App:
 
         self.tabs.pack(expand=1, fill="both")
 
+        self.curr_prediction = -1
+        self.confident_prediction = -1
+        self.prediction_counter = 0
+        self.prediction_threshold = 30
+
 
     def create_home_tab(self):
         self.label = tk.Label(self.home_tab)
         self.label.pack()
 
-        self.cap = cv2.VideoCapture(0)
+        # self.cap = cv2.VideoCapture(0)
         # self.show_frame()
 
-        self.toggle_button = tk.Button(self.home_tab, text="Start", command=lambda: self.toggle_stream())
+        self.toggle_button = tk.Button(self.home_tab, text="Start", command=self.toggle_stream)
         self.toggle_button.pack()
 
     def show_frame(self):
         if self.cap.isOpened():
             _, self.frame = self.cap.read()
+            # _,modified = preprocess(self.frame)
+            new_prediction = predict(self.frame)
+            print(new_prediction)
+            if self.curr_prediction != new_prediction:
+                self.curr_prediction = new_prediction
+                self.confident_prediction = -1
+                self.prediction_counter = 0
+            else:
+                if self.prediction_counter == self.prediction_threshold:
+                    self.confident_prediction = self.curr_prediction
+                else:
+                    self.prediction_counter += 1
             cv2image = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGBA)
             img = Image.fromarray(cv2image)
             imgtk = ImageTk.PhotoImage(image=img)
@@ -55,7 +72,7 @@ class App:
         if self.toggle_button["text"] == "Stop":
             self.toggle_button["text"] = "Start"
             self.cap.release()
-            self.backend_thread.close()
+            # self.backend_thread.close()
         else:
             self.toggle_button["text"] = "Stop"
             self.cap = cv2.VideoCapture(0)
@@ -70,14 +87,10 @@ class App:
     #     self.open_app_based_on_number(random_number)
 
     def get_label(self):
-        time.sleep(self.random_number_interval)
-        label = predict(self.frame)
-        if label == -1:
-            self.toggle_button["text"] = "Start"
-            self.toggle_stream()
-            return
-        print(f"Received Label: {label}")
-        self.open_app_based_on_number(label)
+        while self.confident_prediction == -1:
+            time.sleep(0.1)
+        print(f"Received Label: {self.confident_prediction}")
+        self.open_app_based_on_number(self.confident_prediction)
 
     def create_settings_tab(self):
         self.table = ttk.Treeview(self.settings_tab, columns=("App ID", "App Name"), show="headings")

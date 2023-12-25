@@ -7,6 +7,7 @@ from sklearnex import patch_sklearn
 patch_sklearn()
 from skimage.feature import local_binary_pattern, hog
 import concurrent.futures # for multithreading
+
 def do_parallel_work(function : callable, *function_arguments : list[any]) -> list[any]:
     """Run a function in parallel on multiple threads with the given arguments.\n
     Notice that the function must be thread-safe.\n
@@ -145,6 +146,40 @@ def resize_and_pad(img, target_width = 128, target_height = 128):
         padded_image = cv2.resize(padded_image, (target_width, target_height))
     return padded_image
 
+def preprocess_for_display(img):
+    # img = img.astype(np.float32)/255
+    # img = np.power(img, 1.5) * 255
+    # img = img.astype(np.uint8)
+    # img = cv2.GaussianBlur(img, (3, 3), 2)
+    mask = skin_dumb(img)
+    mask = np.uint8(mask * 255)
+    SE = np.array([
+        [0, 0, 1, 0, 0],
+        [0, 1, 1, 1, 0],
+        [0, 1, 1, 1, 0],
+        [1, 1, 1, 1, 1], 
+        [1, 1, 1, 1, 1], 
+        [1, 1, 1, 1, 1], 
+        [0, 1, 1, 1, 0],
+        [0, 1, 1, 1, 0],
+        [0, 0, 1, 0, 0]
+    ], dtype=np.uint8)
+    modified = np.array(img)
+    # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, SE, iterations=1)
+    # mask = cv2.inRange(mask, int(0.3*255), 255)
+    # mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
+    ctrs, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if len(ctrs) != 0:
+        x, y, w, h = cv2.boundingRect(max(ctrs, key=cv2.contourArea))
+        cv2.rectangle(modified, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    return modified
+
+def calc_variance(img):
+    var_r = np.var(img[:, :, 0])
+    var_g = np.var(img[:, :, 1])
+    var_b = np.var(img[:, :, 2])
+    return var_r + var_g + var_b
+
 # Build Preprocessing Pipeline Here
 def preprocess(img):
     img = cv2.resize(img, (128, 128))
@@ -163,19 +198,36 @@ def preprocess(img):
         [0, 1, 1, 1, 0],
         [0, 0, 1, 0, 0]
     ], dtype=np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, SE, iterations=15)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, SE, iterations=5)
     ctrs, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     # print(ctrs[0][0])
+    valid_contours = list()
     modified = np.array(img)
-    if len(ctrs) != 0:
-        x, y, w, h = cv2.boundingRect(max(ctrs, key=cv2.contourArea))
+    pad = 10
+    for ctr in ctrs:
+        x, y, w, h = cv2.boundingRect(ctr)
+        x = max(x - pad//2, 0)
+        y = max(y - pad//2, 0)
+        w = min(w + pad//2, img.shape[1] - x - 1)
+        h = min(h + pad//2, img.shape[0] - y - 1)
+        variance = calc_variance(img[y:y+h, x:x+w])
+        if variance == float("NaN") or variance > 3500 or cv2.contourArea(ctr) < 40:
+            continue
+        # if w/h > 1.2 or h/w > 1.8:
+        #     continue
+        valid_contours.append(ctr)
         cv2.rectangle(modified, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.putText(modified, str(int(variance)), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    if len(valid_contours) != 0:
+        x, y, w, h = cv2.boundingRect(max(valid_contours, key=cv2.contourArea))
+        # cv2.rectangle(modified, (x, y), (x + w, y + h), (0, 255, 0), 2)
         img = img[y:y+h, x:x+w]
         img = cv2.resize(img, (original_img_shape[:2]))
         # img = resize_and_pad(img)
     # img[mask == 0] = 0
     h = process_HOG(img).reshape(-1)
     return h, modified
+
 def confidence_threshold(row, threshold):
 	max_confidence = np.max(row)
 	if max_confidence < threshold:
