@@ -33,7 +33,7 @@ class App:
         self.curr_prediction = -1
         self.confident_prediction = -1
         self.prediction_counter = 0
-        self.prediction_threshold = 10
+        self.prediction_threshold = 15
 
 
     def create_home_tab(self):
@@ -88,7 +88,7 @@ class App:
 
     def get_label(self):
         while self.confident_prediction == -1:
-            time.sleep(0.1)
+            time.sleep(0.2)
         print(f"Received Label: {self.confident_prediction}")
         self.open_app_based_on_number(self.confident_prediction)
 
