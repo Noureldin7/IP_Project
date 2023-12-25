@@ -33,7 +33,7 @@ class App:
         self.curr_prediction = -1
         self.confident_prediction = -1
         self.prediction_counter = 0
-        self.prediction_threshold = 30
+        self.prediction_threshold = 10
 
 
     def create_home_tab(self):
@@ -156,7 +156,7 @@ class App:
                 self.cap.release()
                 self.toggle_button["text"] = "Start"
                 
-                app_opener(app_name)
+                app_opener(app_name, match_closest=True)
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -245,7 +245,7 @@ def predict(frame):
     features = PCA_model.transform([features])
     confidence = model.predict_proba(features)
     # prediction = model.predict(features)
-    prediction = confidence_threshold(confidence, 0.6)
+    prediction = confidence_threshold(confidence, 0.3)
     return prediction
 
 #! Call Rock Dislike Fist Palm
