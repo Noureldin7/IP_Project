@@ -5,5 +5,4 @@ results
 .amlignore*
 dataset.pkl
 model.pkl
-pca.pkl
 vault
